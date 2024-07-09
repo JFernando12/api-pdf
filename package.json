@@ -1,0 +1,26 @@
+{
+  "name": "api-pdf",
+  "version": "1.0.0",
+  "description": "This sample application allows you to ask natural language questions of any PDF document you upload. It combines the text generation and analysis capabilities of an LLM with a vector search of the document content. The solution uses serverless services such as [Amazon Bedrock](https://aws.amazon.com/bedrock/) to access foundational models, [AWS Lambda](https://aws.amazon.com/lambda/) to run [LangChain](https://github.com/hwchase17/langchain), and [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) for conversational memory.",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/community": "^0.2.17",
+    "@langchain/core": "^0.2.14",
+    "@types/node": "^20.14.10",
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "langchain": "^0.2.8",
+    "mysql2": "^3.10.2",
+    "pdf-parse": "^1.1.1",
+    "typescript": "^5.5.3"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  }
+}
