@@ -1,10 +1,5 @@
 import { createPool, Pool, RowDataPacket } from 'mysql2/promise';
-
-const DB_HOST = process.env.DB_HOST!;
-const DB_USER = process.env.DB_USER!;
-const DB_PASSWORD = process.env.DB_PASSWORD!;
-const DB_DATABASE = process.env.DB_DATABASE!;
-
+import { DB_DATABASE, DB_HOST, DB_PASSWORD, DB_USER } from '../config/environment';
 export class Database {
   private pool: Pool;
 

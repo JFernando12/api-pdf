@@ -12,9 +12,7 @@ import {
 } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import axios from 'axios';
-
-const ACCESS_KEY_ID = process.env.ACCESS_KEY_ID! ;
-const SECRET_ACCESS_KEY = process.env.SECRET_ACCESS_KEY!;
+import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
 
 export const generateResponse = async (url: string, question: string): Promise<string> => {
   const model = new BedrockChat({
