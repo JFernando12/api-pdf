@@ -14,7 +14,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import axios from 'axios';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
 
-export const generateResponse = async (url: string, question: string): Promise<string> => {
+export const generateResponse = async (buffer: Blob, question: string): Promise<string> => {
   const model = new BedrockChat({
     model: 'anthropic.claude-3-sonnet-20240229-v1:0',
     region: 'us-east-1',
@@ -31,9 +31,6 @@ export const generateResponse = async (url: string, question: string): Promise<s
       secretAccessKey: SECRET_ACCESS_KEY,
     },
   });
-
-  const response = await axios.get(url, { responseType: 'arraybuffer' });
-  const buffer = new Blob([response.data]);
 
   const loader = new WebPDFLoader(buffer);
   const docs = await loader.load();
