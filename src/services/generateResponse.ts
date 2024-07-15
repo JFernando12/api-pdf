@@ -14,7 +14,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
 
 export const generateResponse = async (
-  buffer: Blob,
+  blob: Blob,
   question: string,
   setting?: { k: number; fetchK: number; lambda: number }
 ): Promise<string> => {
@@ -35,7 +35,7 @@ export const generateResponse = async (
     },
   });
 
-  const loader = new WebPDFLoader(buffer);
+  const loader = new WebPDFLoader(blob);
   const docs = await loader.load();
 
   const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
