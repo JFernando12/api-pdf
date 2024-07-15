@@ -18,7 +18,7 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%07/2024" AND id != 40106 AND id != 40255 AND != 40256 limit 50',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%07/2024" AND id != 40106 AND id != 40255 AND id != 40256 limit 50',
       []
     );
 
