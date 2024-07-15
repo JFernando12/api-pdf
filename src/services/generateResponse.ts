@@ -1,9 +1,9 @@
 import { BedrockChat } from '@langchain/community/chat_models/bedrock';
 import { BedrockEmbeddings } from '@langchain/community/embeddings/bedrock';
 
-import { WebPDFLoader } from "@langchain/community/document_loaders/web/pdf";
+import { WebPDFLoader } from '@langchain/community/document_loaders/web/pdf';
 
-import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { formatDocumentsAsString } from 'langchain/util/document';
 import { PromptTemplate } from '@langchain/core/prompts';
 import {
@@ -11,19 +11,22 @@ import {
   RunnablePassthrough,
 } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
-import axios from 'axios';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
 
-export const generateResponse = async (buffer: Blob, question: string): Promise<string> => {
+export const generateResponse = async (
+  buffer: Blob,
+  question: string,
+  setting?: { k: number; fetchK: number; lambda: number }
+): Promise<string> => {
   const model = new BedrockChat({
     model: 'anthropic.claude-3-sonnet-20240229-v1:0',
     region: 'us-east-1',
     credentials: {
       accessKeyId: ACCESS_KEY_ID,
       secretAccessKey: SECRET_ACCESS_KEY,
-    }
+    },
   });
-  
+
   const embeddings = new BedrockEmbeddings({
     region: 'us-east-1',
     credentials: {
@@ -35,17 +38,14 @@ export const generateResponse = async (buffer: Blob, question: string): Promise<
   const loader = new WebPDFLoader(buffer);
   const docs = await loader.load();
 
-  const vectorStore = await MemoryVectorStore.fromDocuments(
-    docs,
-    embeddings
-  );
+  const vectorStore = await MemoryVectorStore.fromDocuments(docs, embeddings);
 
   const retriever = vectorStore.asRetriever({
-    k: 20,
+    k: setting?.k || 5,
     searchKwargs: {
-      fetchK: 30,
-      lambda: 0.5,
-    }
+      fetchK: setting?.fetchK || 10,
+      lambda: setting?.lambda || 0.6,
+    },
   });
 
   const prompt =
