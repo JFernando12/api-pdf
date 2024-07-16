@@ -18,13 +18,14 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE fecha LIKE "%06/2024" AND id=36520 limit 1',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%06/2024" limit 20',
       []
     );
 
-    for (const notification of notifications) {
-      const { id, acto, fecha } = notification;
-      await addSummary(id, acto, fecha);
+    const chunkSize = 10; // Number of concurrent tasks
+    for (let i = 0; i < notifications.length; i += chunkSize) {
+      const chunk = notifications.slice(i, i + chunkSize);
+      await Promise.all(chunk.map(({ id, acto, fecha }) => addSummary(id, acto, fecha)));
     }
   } catch (error) {
     console.error('Error:', error);
