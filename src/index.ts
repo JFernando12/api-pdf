@@ -18,11 +18,11 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%06/2024" limit 20',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%06/2024" limit 3',
       []
     );
 
-    const chunkSize = 10; // Number of concurrent tasks
+    const chunkSize = 5; // Number of concurrent tasks
     for (let i = 0; i < notifications.length; i += chunkSize) {
       const chunk = notifications.slice(i, i + chunkSize);
       await Promise.all(chunk.map(({ id, acto, fecha }) => addSummary(id, acto, fecha)));
@@ -53,14 +53,14 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     const summaryLength = numberOfPages <= 3 ? 200 : (numberOfPages <= 10 ? 300 : 500);
     const settings =
       numberOfPages <= 3
-        ? { k: 5, fetchK: 15, lambda: 0.5 }
-        : { k: 10, fetchK: 20, lambda: 0.5 };
+        ? { k: 10, fetchK: 20, lambda: 0.5 }
+        : { k: 15, fetchK: 25, lambda: 0.5 };
 
     const prompt = `Dame un resumen de ${summaryLength} palabras, solo el resumen, sin agregados tipo "Resumen: " o "En resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
-    console.log('Summary:', summary);
-    console.log('Summary length:', summary.length);
+    console.log(`Sumary ${id}:`, summary);
+    console.log(`Summary ${id} length:`, summary.length);
 
     if (summary.length < 650) {
       console.log(`Summary for acto with ID ${id} is not possible`);
