@@ -50,7 +50,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     const { blob, numberOfPages } = await getPdfData(acto);
 
-    const summaryLength = numberOfPages <= 3 ? 200 : 300;
+    const summaryLength = numberOfPages <= 3 ? 200 : (numberOfPages <= 10 ? 300 : 500);
     const settings =
       numberOfPages <= 3
         ? { k: 5, fetchK: 15, lambda: 0.5 }
