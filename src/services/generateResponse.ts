@@ -19,7 +19,7 @@ export const generateResponse = async (
   setting?: { k: number; fetchK: number; lambda: number }
 ): Promise<string> => {
   const model = new BedrockChat({
-    model: 'anthropic.claude-3-sonnet-20240229-v1:0',
+    model: 'anthropic.claude-3-haiku-20240307-v1:0',
     region: 'us-east-1',
     credentials: {
       accessKeyId: ACCESS_KEY_ID,

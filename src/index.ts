@@ -18,7 +18,7 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%07/2024" AND id != 40106 AND id != 40255 AND != 40256 limit 50',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE fecha LIKE "%06/2024" AND id=36520 limit 1',
       []
     );
 
@@ -55,7 +55,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
         ? { k: 5, fetchK: 15, lambda: 0.5 }
         : { k: 10, fetchK: 20, lambda: 0.5 };
 
-    const prompt = `Dame un resumen de ${summaryLength} palabras, sin añadidos ni doble saltos de linea.`;
+    const prompt = `Dame un resumen de ${summaryLength} palabras, solo el resumen, sin agregados tipo "Resumen: " o "En resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
     console.log('Summary:', summary);
