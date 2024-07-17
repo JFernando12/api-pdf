@@ -18,11 +18,11 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%06/2024" limit 3',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%06/2024" limit 600',
       []
     );
 
-    const chunkSize = 5; // Number of concurrent tasks
+    const chunkSize = 10; // Number of concurrent tasks
     for (let i = 0; i < notifications.length; i += chunkSize) {
       const chunk = notifications.slice(i, i + chunkSize);
       await Promise.all(chunk.map(({ id, acto, fecha }) => addSummary(id, acto, fecha)));
@@ -56,7 +56,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
         ? { k: 10, fetchK: 20, lambda: 0.5 }
         : { k: 15, fetchK: 25, lambda: 0.5 };
 
-    const prompt = `Dame un resumen de ${summaryLength} palabras, solo el resumen, sin agregados tipo "Resumen: " o "En resumen".`;
+    const prompt = `Dame un resumen de ${summaryLength} palabras, incluye todas la fechas que encuentres, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
     console.log(`Sumary ${id}:`, summary);
