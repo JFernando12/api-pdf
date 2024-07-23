@@ -12,38 +12,21 @@ import {
 } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
-import { Document } from "@langchain/core/documents";
-import { encode } from 'gpt-3-encoder';
+import { Document } from '@langchain/core/documents';
 
 function estimateTokenCount(text: string) {
   return Math.ceil(text.length / 4);
 }
 
-function countTokens(text: string) {
-  const tokens = encode(text);
-  return tokens.length;
-}
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const removeFormatting = (text: string) => {
-  return text
+  return text;
 };
 
-export const generateResponse = async (
-  blob: Blob,
+const proccessChunk = async (
+  chunk: Document[],
   question: string,
   setting?: { k: number; fetchK: number; lambda: number }
-): Promise<string> => {
-  const model = new BedrockChat({
-    model: 'anthropic.claude-3-haiku-20240307-v1:0',
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: ACCESS_KEY_ID,
-      secretAccessKey: SECRET_ACCESS_KEY,
-    },
-  });
-
+) => {
   const embeddings = new BedrockEmbeddings({
     region: 'us-east-1',
     credentials: {
@@ -53,10 +36,72 @@ export const generateResponse = async (
     model: 'amazon.titan-embed-text-v2:0',
   });
 
+  const model = new BedrockChat({
+    model: 'anthropic.claude-3-haiku-20240307-v1:0',
+    region: 'us-east-1',
+    credentials: {
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
+    },
+  });
+
+  // Process each chunk separately
+  const contexts: any = {};
+  let contextsPromp = '';
+  for (let i = 0; i < chunk.length; i++) {
+    console.log('Processing chunk:', i);
+    const document = chunk[i];
+
+    const vectorStore = await MemoryVectorStore.fromDocuments(
+      [document],
+      embeddings
+    );
+    console.log(`vectorStore ${i} created`);
+
+    const retreiver = vectorStore.asRetriever({
+      k: setting?.k || 5,
+      searchKwargs: {
+        fetchK: setting?.fetchK || 10,
+        lambda: setting?.lambda || 0.6,
+      },
+    });
+
+    const contextName = `context${i + 1}`;
+    contexts[contextName] = retreiver.pipe(formatDocumentsAsString);
+
+    contextsPromp += `{${contextName}} `;
+  }
+
+  const prompt =
+    PromptTemplate.fromTemplate(`Answer the question based only on the following contexts: ${contextsPromp}
+    Question: {question}`);
+
+  const chain = RunnableSequence.from([
+    {
+      ...contexts,
+      question: new RunnablePassthrough(),
+    },
+    prompt,
+    model,
+    new StringOutputParser(),
+  ]);
+
+  const result = await chain.invoke(question);
+
+  return result;
+};
+
+export const generateResponse = async (
+  blob: Blob,
+  question: string,
+  setting?: { k: number; fetchK: number; lambda: number }
+): Promise<string> => {
   const loader = new WebPDFLoader(blob);
   const docs = await loader.load();
 
-  const fullText = removeFormatting(docs.map((doc) => doc.pageContent).join(' '));
+  const fullText = removeFormatting(
+    docs.map((doc) => doc.pageContent).join(' ')
+  );
 
   const maxTokens = 3800; // Adjust based on token limits
   // Create many chunks of text with a maximum of maxTokens tokens from fullText
@@ -80,51 +125,24 @@ export const generateResponse = async (
     return {
       pageContent: chunk,
       metadata: {},
-      id: '',
     };
   });
   console.log('chunkedDocs:', chunkedDocs.length);
 
-  // Process each chunk separately
-  const contexts: any = {};
-  let contextsPromp = '';
-  for (let i = 0; i < 20; i++) {
-    console.log('Processing chunk:', i);
-    const chunk = chunkedDocs[i];
-    console.log('chunk:', chunk);
-    
-    const vectorStore = await MemoryVectorStore.fromDocuments([chunk], embeddings);
-    console.log(`vectorStore ${i} created`);
-
-    const retreiver = vectorStore.asRetriever({
-      k: setting?.k || 5,
-      searchKwargs: {
-        fetchK: setting?.fetchK || 10,
-        lambda: setting?.lambda || 0.6,
-      },
-    });
-
-    const contextName = `context${i + 1}`;
-    contexts[contextName] = retreiver.pipe(formatDocumentsAsString);
-
-    contextsPromp += `{${contextName}} `;
+  // Procces every 20 chunks
+  const chunkSize = 20;
+  const chunks = [];
+  for (let i = 0; i < chunkedDocs.length; i += chunkSize) {
+    const chunk = chunkedDocs.slice(i, i + chunkSize);
+    chunks.push(chunk);
   }
 
-  const prompt =
-    PromptTemplate.fromTemplate(`Answer the question based only on the following contexts: ${contextsPromp}
-      Question: {question}`);
+  const responses = [];
+  for (const chunk of chunks) {
+    const response = await proccessChunk(chunk, question, setting);
+    responses.push(response);
+  }
 
-  const chain = RunnableSequence.from([
-    {
-      ...contexts,
-      question: new RunnablePassthrough(),
-    },
-    prompt,
-    model,
-    new StringOutputParser(),
-  ]);
-
-  const result = await chain.invoke(question);
-
-  return result;
+  console.log('responses:', responses);
+  return 'holis';
 };
