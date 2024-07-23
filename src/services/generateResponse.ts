@@ -13,12 +13,22 @@ import {
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { ACCESS_KEY_ID, SECRET_ACCESS_KEY } from '../config/environment';
 import { Document } from "@langchain/core/documents";
+import { encode } from 'gpt-3-encoder';
 
 function estimateTokenCount(text: string) {
   return Math.ceil(text.length / 4);
 }
 
+function countTokens(text: string) {
+  const tokens = encode(text);
+  return tokens.length;
+}
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const removeFormatting = (text: string) => {
+  return text
+};
 
 export const generateResponse = async (
   blob: Blob,
@@ -40,55 +50,51 @@ export const generateResponse = async (
       accessKeyId: ACCESS_KEY_ID,
       secretAccessKey: SECRET_ACCESS_KEY,
     },
+    model: 'amazon.titan-embed-text-v2:0',
   });
 
   const loader = new WebPDFLoader(blob);
   const docs = await loader.load();
 
-  // Define a function to split documents into chunks
-  const maxTokens = 12000;
-  const chunkDocs = async (docs: Document[], chunkSize: number) => {
-    let chunks: any = [];
-    for (let i = 0; i < docs.length; i += chunkSize) {
-      const chunk = docs.slice(i, i + chunkSize);
-      const tokens = estimateTokenCount(chunk.map((doc) => doc.pageContent).join(' '));
+  const fullText = removeFormatting(docs.map((doc) => doc.pageContent).join(' '));
 
-      if (tokens > maxTokens) {
-        let newChunkSize = Math.ceil(tokens / maxTokens);
-        if (newChunkSize >= docs.length) {
-          newChunkSize = docs.length - 1;
-        }
-        console.log('newChunkSize:', newChunkSize);
-        const newChunks = await chunkDocs(chunk, newChunkSize);
-        chunks.push(...newChunks);
-        continue;
-      }
-
-      chunks.push(chunk);
+  const maxTokens = 3800; // Adjust based on token limits
+  // Create many chunks of text with a maximum of maxTokens tokens from fullText
+  const textChunks = [];
+  let currentChunk = '';
+  let currentChunkTokens = 0;
+  for (const word of fullText.split(' ')) {
+    const wordTokens = estimateTokenCount(word);
+    if (currentChunkTokens + wordTokens > maxTokens) {
+      textChunks.push(currentChunk);
+      currentChunk = '';
+      currentChunkTokens = 0;
     }
-    return chunks;
-  };
+    currentChunk += word + ' ';
+    currentChunkTokens += wordTokens;
+  }
+  textChunks.push(currentChunk);
 
-  // Split documents into chunks
-  console.log('docs:', docs.length);
-  const chunkedDocs = await chunkDocs(docs, 20); // Adjust chunk size based on token limits
+  // Create a document for each chunk
+  const chunkedDocs = textChunks.map((chunk) => {
+    return {
+      pageContent: chunk,
+      metadata: {},
+      id: '',
+    };
+  });
   console.log('chunkedDocs:', chunkedDocs.length);
 
   // Process each chunk separately
   const contexts: any = {};
   let contextsPromp = '';
-  for (let i = 0; i < chunkedDocs.length; i++) {
+  for (let i = 0; i < 20; i++) {
     console.log('Processing chunk:', i);
     const chunk = chunkedDocs[i];
-    console.log('chunk:', chunk.length);
     console.log('chunk:', chunk);
-
-    const tokens = estimateTokenCount(chunk.map((doc: Document) => doc.pageContent).join(' '));
-    console.log('tokens:', tokens);
     
-    const vectorStore = await MemoryVectorStore.fromDocuments(chunk, embeddings);
+    const vectorStore = await MemoryVectorStore.fromDocuments([chunk], embeddings);
     console.log(`vectorStore ${i} created`);
-    await delay(3000); // Add delay to avoid rate limits
 
     const retreiver = vectorStore.asRetriever({
       k: setting?.k || 5,
@@ -103,10 +109,6 @@ export const generateResponse = async (
 
     contextsPromp += `{${contextName}} `;
   }
-
-  console.log('contexts:', contexts);
-  console.log('contextsPromp:', contextsPromp);
-
 
   const prompt =
     PromptTemplate.fromTemplate(`Answer the question based only on the following contexts: ${contextsPromp}

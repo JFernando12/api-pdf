@@ -50,11 +50,24 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     const { blob, numberOfPages } = await getPdfData(acto);
 
-    const summaryLength = numberOfPages <= 3 ? 200 : (numberOfPages <= 10 ? 300 : 500);
-    const settings =
-      numberOfPages <= 3
-        ? { k: 10, fetchK: 20, lambda: 0.5 }
-        : { k: 15, fetchK: 25, lambda: 0.5 };
+    // const summaryLength = numberOfPages <= 3 ? 200 : (numberOfPages <= 10 ? 300 : 500);
+    // const settings =
+    //   numberOfPages <= 3
+    //     ? { k: 10, fetchK: 20, lambda: 0.5 }
+    //     : { k: 1, fetchK: 1, lambda: 0.5 };
+    let summaryLength = 200;
+    let settings = { k: 10, fetchK: 20, lambda: 0.5 };
+
+    if (numberOfPages > 3 && numberOfPages <= 10) {
+      summaryLength = 300;
+      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+    } else if (numberOfPages > 10 && numberOfPages <= 30) {
+      summaryLength = 500;
+      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+    } else if (numberOfPages > 30) {
+      summaryLength = 1000;
+      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+    }
 
     const prompt = `Dame un resumen de ${summaryLength} palabras, incluye todas la fechas que encuentres, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
