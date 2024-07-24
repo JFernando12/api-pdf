@@ -69,12 +69,12 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
       settings = { k: 1, fetchK: 1, lambda: 0.5 };
     }
 
+    console.log(`Summary length: ${summaryLength}`);
     const prompt = `Dame un resumen de ${summaryLength} palabras, incluye todas la fechas que encuentres, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
     console.log(`Sumary ${id}:`, summary);
-    console.log(`Summary ${id} length:`, summary.length);
-
+    console.log(`Summary ${id} characters:`, summary.length);
     if (summary.length < 650) {
       console.log(`Summary for acto with ID ${id} is not possible`);
       await db.query(

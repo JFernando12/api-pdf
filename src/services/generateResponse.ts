@@ -73,8 +73,8 @@ const proccessChunk = async (
   }
 
   const prompt =
-    PromptTemplate.fromTemplate(`Answer the question based only on the following contexts: ${contextsPromp}
-    Question: {question}`);
+    PromptTemplate.fromTemplate(`Responde la pregunta basándote únicamente en los siguientes contextos: ${contextsPromp}
+    Pregunta: {question}`);
 
   const chain = RunnableSequence.from([
     {
@@ -143,6 +143,12 @@ export const generateResponse = async (
     responses.push(response);
   }
 
-  console.log('responses:', responses);
-  return 'holis';
+  // Summarize responses with ai if response has more than 1 element
+  if (responses.length > 1) {
+    const documents = responses.map((response) => ({ pageContent: response, metadata: {} }));
+    const summary = await proccessChunk(documents, 'Summarize the responses');
+    return summary;
+  }
+
+  return responses[0];
 };
