@@ -146,7 +146,7 @@ export const generateResponse = async (
   // Summarize responses with ai if response has more than 1 element
   if (responses.length > 1) {
     const documents = responses.map((response) => ({ pageContent: response, metadata: {} }));
-    const summary = await proccessChunk(documents, 'Summarize the responses');
+    const summary = await proccessChunk(documents, question, setting);
     return summary;
   }
 

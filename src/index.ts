@@ -70,7 +70,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de ${summaryLength} palabras, incluye todas la fechas que encuentres, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen".`;
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye fechas importantes, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen" o "Aquí tienes un resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
     console.log(`Sumary ${id}:`, summary);
