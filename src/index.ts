@@ -13,12 +13,13 @@ interface INotification extends RowDataPacket {
 // 40106
 // 40255
 // 40256
+// 38812
 
 const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE id = 38812 limit 1',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%/2024" limit 2617',
       []
     );
 
@@ -50,27 +51,22 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     const { blob, numberOfPages } = await getPdfData(acto);
 
-    // const summaryLength = numberOfPages <= 3 ? 200 : (numberOfPages <= 10 ? 300 : 500);
-    // const settings =
-    //   numberOfPages <= 3
-    //     ? { k: 10, fetchK: 20, lambda: 0.5 }
-    //     : { k: 1, fetchK: 1, lambda: 0.5 };
     let summaryLength = 200;
-    let settings = { k: 10, fetchK: 20, lambda: 0.5 };
+    let settings = { k: 5, fetchK: 15, lambda: 0.5 };
 
     if (numberOfPages > 3 && numberOfPages <= 10) {
       summaryLength = 300;
-      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 10 && numberOfPages <= 30) {
       summaryLength = 500;
-      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 30) {
       summaryLength = 1000;
-      settings = { k: 1, fetchK: 1, lambda: 0.5 };
+      settings = { k: 1, fetchK: 5, lambda: 0.5 };
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye fechas importantes, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen" o "Aquí tienes un resumen".`;
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye fechas de ser posible, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen" o "Aquí tienes un resumen".`;
     const summary = await generateResponse(blob, prompt, settings);
 
     console.log(`Sumary ${id}:`, summary);
