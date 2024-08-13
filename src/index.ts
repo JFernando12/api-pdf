@@ -3,6 +3,7 @@ import { generateResponse } from './services/generateResponse';
 import { RowDataPacket } from 'mysql2/promise';
 import getPdfData from './util/getPdfData';
 import verifyURL from './util/verifyURL';
+import { generateResponse3 } from './services/generateResponse3';
 
 interface INotification extends RowDataPacket {
   id: number;
@@ -10,16 +11,13 @@ interface INotification extends RowDataPacket {
   fecha: string;
 }
 
-// 40106
-// 40255
-// 40256
-// 38812
+//Procesados: 08, 07, 06, 05
 
 const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NULL AND fecha LIKE "%/2024" limit 20',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE fecha LIKE "%04/2024"',
       []
     );
 
@@ -66,12 +64,13 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye fechas de ser posible, solo quiero el resumen, sin añadidos tipo "Resumen: " o "En resumen" o "Aquí tienes un resumen".`;
-    const summary = await generateResponse(blob, prompt, settings);
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye entregables y fechas importantes de ser posible.`;
+    const format = 'IMPORTANTE: Dame todo en formato HTML, sin son listas utiliza el tag ol (p, b, br, ol, li, etc.). IMPORTANTE: Solo devuelve el contenido del resumen, sin titulos tipo <h2>Resumen</h2> o </body>.';
+    const summary = await generateResponse(blob, prompt, format, settings);
 
     console.log(`Sumary ${id}:`, summary);
     console.log(`Summary ${id} characters:`, summary.length);
-    if (summary.length < 650) {
+    if (summary.length < 600) {
       console.log(`Summary for acto with ID ${id} is not possible`);
       await db.query(
         'UPDATE buzon__notificaciones_lista SET resumen = ? WHERE id = ?',
@@ -85,6 +84,23 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
       [summary, id]
     );
     console.log(`Summary added successfully for acto with ID ${id}`);
+
+    const summaryBlob = [{ id: '1', pageContent: summary, metadata: {} }];
+    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON { "Entregable 1": "{{Descripcion1}}", "Entregable 2": "{{Descripcion2}}" }. IMPORTANTE: Solo devuelve el JSON', settings);
+    console.log(`Deliverables JSON ${id}:`, deliverablesJson);
+    
+    // Check if deliverables are valid JSON
+    try {
+      JSON.parse(deliverablesJson);
+    } catch (error) {
+      console.error(`Deliverables for acto with ID ${id} are not valid JSON:`, error);
+      return;
+    }
+
+    await db.query(
+      'UPDATE buzon__notificaciones_lista SET entregables = ? WHERE id = ?',
+      [deliverablesJson, id]
+    );
   } catch (error) {
     console.error(`Failed to add summary for acto with ID ${id}:`, error);
   }

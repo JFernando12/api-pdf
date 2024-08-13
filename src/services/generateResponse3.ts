@@ -91,15 +91,11 @@ const proccessChunk = async (
   return result;
 };
 
-export const generateResponse = async (
-  blob: Blob,
+export const generateResponse3 = async (
+  docs: Document[],
   question: string,
-  format: string,
   setting?: { k: number; fetchK: number; lambda: number }
 ): Promise<string> => {
-  const loader = new WebPDFLoader(blob);
-  const docs = await loader.load();
-
   const fullText = removeFormatting(
     docs.map((doc) => doc.pageContent).join(' ')
   );
@@ -139,16 +135,15 @@ export const generateResponse = async (
   }
 
   const responses = [];
-  const questionFormatted =  chunks.length === 1 ? `${question} /n ${format} ` : question;
   for (const chunk of chunks) {
-    const response = await proccessChunk(chunk, questionFormatted, setting);
+    const response = await proccessChunk(chunk, question, setting);
     responses.push(response);
   }
 
   // Summarize responses with ai if response has more than 1 element
   if (responses.length > 1) {
     const documents = responses.map((response) => ({ pageContent: response, metadata: {} }));
-    const summary = await proccessChunk(documents, `${question} \n ${format} `, setting);
+    const summary = await proccessChunk(documents, question, setting);
     return summary;
   }
 
