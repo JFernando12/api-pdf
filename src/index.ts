@@ -17,7 +17,7 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE resumen IS NOT NULL AND resumen != "Sin resumen" AND entregables IS NULL AND fecha LIKE "%/2024"',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE id=48072',
       []
     );
 
@@ -54,17 +54,17 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     if (numberOfPages > 3 && numberOfPages <= 10) {
       summaryLength = 300;
-      settings = { k: 10, fetchK: 15, lambda: 0.5 };
+      settings = { k: 12, fetchK: 17, lambda: 0.5 };
     } else if (numberOfPages > 10 && numberOfPages <= 30) {
       summaryLength = 500;
-      settings = { k: 10, fetchK: 15, lambda: 0.5 };
+      settings = { k: 12, fetchK: 17, lambda: 0.5 };
     } else if (numberOfPages > 30) {
       summaryLength = 1000;
-      settings = { k: 1, fetchK: 5, lambda: 0.5 };
+      settings = { k: 3, fetchK: 10, lambda: 0.5 };
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye entregables y fechas importantes de ser posible.`;
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye todos los entregables y fechas importantes de ser posible.`;
     const format = 'IMPORTANTE: Dame todo en formato HTML, sin son listas utiliza el tag ol (p, b, br, ol, li, etc.). IMPORTANTE: Solo devuelve el contenido del resumen, sin titulos tipo <h2>Resumen</h2> o </body>.';
     const summary = await generateResponse(blob, prompt, format, settings);
 
@@ -91,7 +91,20 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     
     // Check if deliverables are valid JSON
     try {
-      JSON.parse(deliverablesJson);
+      const deliverables = JSON.parse(deliverablesJson);
+      console.log('Deriverables:', deliverables);
+
+      // Getting the parragraphs of each deliverable
+      let deliverablesParagraphs = [];
+      let order = 0;
+      for (const key in deliverables) {
+        const entregable = deliverables[key];
+        const format = 'IMPORTANTE: Solo devuelve el contenido, sin agregados tipo "El párrafo que contiene este entregable es:"';
+        const parrafo = await generateResponse(blob, `Dame el parrafo que contiene este entregable: ${entregable}`, format, settings);
+        deliverablesParagraphs.push({ order, entregable, parrafo });
+        order++;
+      }
+      console.log('Deliverables paragraphs:', deliverablesParagraphs);
     } catch (error) {
       console.error(`Deliverables for acto with ID ${id} are not valid JSON:`, error);
       return;

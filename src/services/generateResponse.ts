@@ -104,7 +104,7 @@ export const generateResponse = async (
     docs.map((doc) => doc.pageContent).join(' ')
   );
 
-  const maxTokens = 3200; // Adjust based on token limits
+  const maxTokens = 7000; // Adjust based on token limits
   // Create many chunks of text with a maximum of maxTokens tokens from fullText
   const textChunks = [];
   let currentChunk = '';
