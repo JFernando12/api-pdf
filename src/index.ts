@@ -54,10 +54,10 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     if (numberOfPages > 3 && numberOfPages <= 10) {
       summaryLength = 300;
-      settings = { k: 12, fetchK: 17, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 10 && numberOfPages <= 30) {
       summaryLength = 500;
-      settings = { k: 12, fetchK: 17, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 30) {
       summaryLength = 1000;
       settings = { k: 3, fetchK: 10, lambda: 0.5 };
@@ -86,25 +86,34 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     console.log(`Summary added successfully for acto with ID ${id}`);
 
     const summaryBlob = [{ id: '1', pageContent: summary, metadata: {} }];
-    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON { "Entregable 1": "{{Descripcion1}}", "Entregable 2": "{{Descripcion2}}" }. IMPORTANTE: Solo devuelve el JSON', settings);
+    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: Usa comillas simples en el contenido cuando se requiera. IMPORTANTE: Solo devuelve el JSON', settings);
     console.log(`Deliverables JSON ${id}:`, deliverablesJson);
     
     // Check if deliverables are valid JSON
     try {
       const deliverables = JSON.parse(deliverablesJson);
       console.log('Deriverables:', deliverables);
+      const deliverablesFormatted = deliverables.map((entregable: string) => ({ entregable }));
 
-      // Getting the parragraphs of each deliverable
-      let deliverablesParagraphs = [];
-      let order = 0;
-      for (const key in deliverables) {
-        const entregable = deliverables[key];
-        const format = 'IMPORTANTE: Solo devuelve el contenido, sin agregados tipo "El párrafo que contiene este entregable es:"';
-        const parrafo = await generateResponse(blob, `Dame el parrafo que contiene este entregable: ${entregable}`, format, settings);
-        deliverablesParagraphs.push({ order, entregable, parrafo });
-        order++;
+      const deliverablesParagraphs = [];
+      // Process in chunks of 5
+      const chunkSize = 3;
+      for (let i = 0; i < deliverables.length; i += chunkSize) {
+        const chunk = deliverablesFormatted.slice(i, i + chunkSize);
+        const jsonDeliverables = JSON.stringify(chunk);
+
+        const format = 'IMPORTANTE: Respuesta en formato JSON [{ entregable: "{{Entregable1}}", parrafo: "{{Parrafo1}}" }, { entregable: "{{Entregable2}}", parrafo: "{{Parrafo2}}" }, ...]. IMPORTANTE: Usa comillas simples en el contenido cuando se requiera. IMPORTANTE: Solo devuelve el JSON';
+        const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablan sobre estos entregable: ${jsonDeliverables}`, format, settings);
+        
+        // Check if deliverables paragraphs are valid JSON
+        const arrayDerivables = JSON.parse(deliverablesRespond);
+        console.log('Deliverables paragraphs:', arrayDerivables);
+        
+        deliverablesParagraphs.push(...arrayDerivables);
       }
-      console.log('Deliverables paragraphs:', deliverablesParagraphs);
+
+      const result = deliverablesParagraphs.map((deliverable, index) => ({ ...deliverable, order: index + 1 }));
+      console.log('Deliverables paragraphs:', result);
     } catch (error) {
       console.error(`Deliverables for acto with ID ${id} are not valid JSON:`, error);
       return;
