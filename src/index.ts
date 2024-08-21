@@ -11,7 +11,8 @@ interface INotification extends RowDataPacket {
   fecha: string;
 }
 
-//Procesados: 08, 07, 06, 05
+//Procesados:
+// 48072
 
 const start = async () => {
   try {
@@ -33,6 +34,35 @@ const start = async () => {
   }
 };
 
+const removeNestedQuotesFromString = (inputString: string) => {
+  let outputString = "";
+  let isInsideQuote = false;
+  let isInsideNestedQuote = false;
+
+  for (let i = 0; i < inputString.length; i++) {
+      const currentChar = inputString[i];
+      const nextChar = inputString[i + 1];
+
+      if (currentChar === '"' && !isInsideQuote) {
+          // Entering an outer quote
+          isInsideQuote = true;
+          outputString += currentChar;
+      } else if (currentChar === '"' && isInsideQuote && nextChar !== ',' && nextChar !== ':' && nextChar !== ' ' && nextChar !== '}') {
+          // Found a nested quote
+          isInsideNestedQuote = !isInsideNestedQuote;
+          outputString += isInsideNestedQuote ? "'" : "'";
+      } else if (currentChar === '"' && isInsideQuote && !isInsideNestedQuote) {
+          // Exiting an outer quote
+          isInsideQuote = false;
+          outputString += currentChar;
+      } else {
+          outputString += currentChar;
+      }
+  }
+
+  return outputString;
+}
+
 const addSummary = async (id: number, acto: string, fecha: string) => {
   try {
     console.log(`Adding summary for: ${id} - ${fecha} - ${acto}`);
@@ -49,14 +79,14 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
 
     const { blob, numberOfPages } = await getPdfData(acto);
 
-    let summaryLength = 200;
+    let summaryLength = 300;
     let settings = { k: 5, fetchK: 15, lambda: 0.5 };
 
     if (numberOfPages > 3 && numberOfPages <= 10) {
-      summaryLength = 300;
+      summaryLength = 400;
       settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 10 && numberOfPages <= 30) {
-      summaryLength = 500;
+      summaryLength = 600;
       settings = { k: 10, fetchK: 15, lambda: 0.5 };
     } else if (numberOfPages > 30) {
       summaryLength = 1000;
@@ -64,7 +94,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, incluye todos los entregables y fechas importantes de ser posible.`;
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, es my importante que incluyas todos los entregables, indicaciones y fechas relevantes.`;
     const format = 'IMPORTANTE: Dame todo en formato HTML, sin son listas utiliza el tag ol (p, b, br, ol, li, etc.). IMPORTANTE: Solo devuelve el contenido del resumen, sin titulos tipo <h2>Resumen</h2> o </body>.';
     const summary = await generateResponse(blob, prompt, format, settings);
 
@@ -86,27 +116,29 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     console.log(`Summary added successfully for acto with ID ${id}`);
 
     const summaryBlob = [{ id: '1', pageContent: summary, metadata: {} }];
-    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: Usa comillas simples en el contenido cuando se requiera. IMPORTANTE: Solo devuelve el JSON', settings);
+    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: No uses commillas dobles en el contenido. IMPORTANTE: Solo devuelve el JSON', settings);
     console.log(`Deliverables JSON ${id}:`, deliverablesJson);
     
-    // Check if deliverables are valid JSON
+    const deliverablesParagraphs = [];
     try {
       const deliverables = JSON.parse(deliverablesJson);
       console.log('Deriverables:', deliverables);
       const deliverablesFormatted = deliverables.map((entregable: string) => ({ entregable }));
 
-      const deliverablesParagraphs = [];
       // Process in chunks of 5
       const chunkSize = 3;
       for (let i = 0; i < deliverables.length; i += chunkSize) {
         const chunk = deliverablesFormatted.slice(i, i + chunkSize);
         const jsonDeliverables = JSON.stringify(chunk);
 
-        const format = 'IMPORTANTE: Respuesta en formato JSON [{ entregable: "{{Entregable1}}", parrafo: "{{Parrafo1}}" }, { entregable: "{{Entregable2}}", parrafo: "{{Parrafo2}}" }, ...]. IMPORTANTE: Usa comillas simples en el contenido cuando se requiera. IMPORTANTE: Solo devuelve el JSON';
-        const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablan sobre estos entregable: ${jsonDeliverables}`, format, settings);
-        
+        const format = 'IMPORTANTE: Respuesta en formato JSON [{ "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, { "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, ...]. IMPORTANTE: Quita las comillas de los parrafos. IMPORTANTE: Solo devuelve el JSON.';
+        const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablan sobre estos entregable, es importante la precision, por lo tanto si hay mas de 1 parrafo que coincide tambien los quiero: ${jsonDeliverables}`, format, settings);
+        console.log(`Deliverables paragraphs ${id}:`, deliverablesRespond);
         // Check if deliverables paragraphs are valid JSON
-        const arrayDerivables = JSON.parse(deliverablesRespond);
+
+        const deliverablesRespondClean = removeNestedQuotesFromString(deliverablesRespond);
+        console.log(`Deliverables paragraphs ${id} clean:`, deliverablesRespondClean);
+        const arrayDerivables = JSON.parse(deliverablesRespondClean);
         console.log('Deliverables paragraphs:', arrayDerivables);
         
         deliverablesParagraphs.push(...arrayDerivables);
@@ -119,9 +151,10 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
       return;
     }
 
+    const JSONDeliverables = JSON.stringify(deliverablesParagraphs);
     await db.query(
       'UPDATE buzon__notificaciones_lista SET entregables = ? WHERE id = ?',
-      [deliverablesJson, id]
+      [JSONDeliverables, id]
     );
   } catch (error) {
     console.error(`Failed to add summary for acto with ID ${id}:`, error);
