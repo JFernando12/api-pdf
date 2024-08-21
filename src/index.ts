@@ -63,6 +63,22 @@ const removeNestedQuotesFromString = (inputString: string) => {
   return outputString;
 }
 
+function fixJson(jsonString: string) {
+  try {
+    // Replace escaped quotes within JSON strings
+    let fixedString = jsonString.replace(/\\\"/g, '"');
+
+    // Parse the JSON string into an object
+    let jsonObject = JSON.parse(fixedString);
+
+    // Return the parsed JSON object
+    return jsonObject;
+  } catch (error) {
+    console.error('Error parsing JSON:', error);
+    return null;
+  }
+}
+
 const addSummary = async (id: number, acto: string, fecha: string) => {
   try {
     console.log(`Adding summary for: ${id} - ${fecha} - ${acto}`);
@@ -116,7 +132,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     console.log(`Summary added successfully for acto with ID ${id}`);
 
     const summaryBlob = [{ id: '1', pageContent: summary, metadata: {} }];
-    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: No uses commillas dobles en el contenido. IMPORTANTE: Solo devuelve el JSON', settings);
+    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: Scape double quotes. IMPORTANTE: Solo devuelve el JSON', settings);
     console.log(`Deliverables JSON ${id}:`, deliverablesJson);
     
     const deliverablesParagraphs = [];
@@ -131,27 +147,24 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
         const chunk = deliverablesFormatted.slice(i, i + chunkSize);
         const jsonDeliverables = JSON.stringify(chunk);
 
-        const format = 'IMPORTANTE: Respuesta en formato JSON [{ "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, { "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, ...]. IMPORTANTE: Quita las comillas de los parrafos. IMPORTANTE: Solo devuelve el JSON.';
+        const format = 'IMPORTANTE: Respuesta en formato JSON [{ "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, { "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, ...]. IMPORTANTE: Scape the double quotes. IMPORTANTE: Solo devuelve el JSON.';
         const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablan sobre estos entregable, es importante la precision, por lo tanto si hay mas de 1 parrafo que coincide tambien los quiero: ${jsonDeliverables}`, format, settings);
         console.log(`Deliverables paragraphs ${id}:`, deliverablesRespond);
         // Check if deliverables paragraphs are valid JSON
 
-        const deliverablesRespondClean = removeNestedQuotesFromString(deliverablesRespond);
-        console.log(`Deliverables paragraphs ${id} clean:`, deliverablesRespondClean);
-        const arrayDerivables = JSON.parse(deliverablesRespondClean);
+        const arrayDerivables = JSON.parse(deliverablesRespond);
         console.log('Deliverables paragraphs:', arrayDerivables);
         
         deliverablesParagraphs.push(...arrayDerivables);
       }
-
-      const result = deliverablesParagraphs.map((deliverable, index) => ({ ...deliverable, order: index + 1 }));
-      console.log('Deliverables paragraphs:', result);
     } catch (error) {
       console.error(`Deliverables for acto with ID ${id} are not valid JSON:`, error);
       return;
     }
 
-    const JSONDeliverables = JSON.stringify(deliverablesParagraphs);
+    const result = deliverablesParagraphs.map((deliverable, index) => ({ ...deliverable, order: index + 1 }));
+    console.log('Deliverables paragraphs:', result);
+    const JSONDeliverables = JSON.stringify(result);
     await db.query(
       'UPDATE buzon__notificaciones_lista SET entregables = ? WHERE id = ?',
       [JSONDeliverables, id]
