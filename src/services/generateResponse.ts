@@ -37,7 +37,7 @@ const proccessChunk = async (
   });
 
   const model = new BedrockChat({
-    model: 'anthropic.claude-3-haiku-20240307-v1:0',
+    model: 'anthropic.claude-3-5-sonnet-20240620-v1:0',
     region: 'us-east-1',
     credentials: {
       accessKeyId: ACCESS_KEY_ID,
@@ -104,7 +104,7 @@ export const generateResponse = async (
     docs.map((doc) => doc.pageContent).join(' ')
   );
 
-  const maxTokens = 7000; // Adjust based on token limits
+  const maxTokens = 4000; // Adjust based on token limits
   // Create many chunks of text with a maximum of maxTokens tokens from fullText
   const textChunks = [];
   let currentChunk = '';

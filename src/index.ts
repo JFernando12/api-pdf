@@ -18,7 +18,7 @@ const start = async () => {
   try {
     console.log('Starting...');
     const notifications = await db.query<INotification[]>(
-      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE id=48072',
+      'SELECT id, acto, fecha FROM buzon__notificaciones_lista WHERE fecha LIKE "%08/2024" AND entregables IS NULL AND resumen != "Sin resumen"',
       []
     );
 
@@ -33,51 +33,6 @@ const start = async () => {
     await db.close();
   }
 };
-
-const removeNestedQuotesFromString = (inputString: string) => {
-  let outputString = "";
-  let isInsideQuote = false;
-  let isInsideNestedQuote = false;
-
-  for (let i = 0; i < inputString.length; i++) {
-      const currentChar = inputString[i];
-      const nextChar = inputString[i + 1];
-
-      if (currentChar === '"' && !isInsideQuote) {
-          // Entering an outer quote
-          isInsideQuote = true;
-          outputString += currentChar;
-      } else if (currentChar === '"' && isInsideQuote && nextChar !== ',' && nextChar !== ':' && nextChar !== ' ' && nextChar !== '}') {
-          // Found a nested quote
-          isInsideNestedQuote = !isInsideNestedQuote;
-          outputString += isInsideNestedQuote ? "'" : "'";
-      } else if (currentChar === '"' && isInsideQuote && !isInsideNestedQuote) {
-          // Exiting an outer quote
-          isInsideQuote = false;
-          outputString += currentChar;
-      } else {
-          outputString += currentChar;
-      }
-  }
-
-  return outputString;
-}
-
-function fixJson(jsonString: string) {
-  try {
-    // Replace escaped quotes within JSON strings
-    let fixedString = jsonString.replace(/\\\"/g, '"');
-
-    // Parse the JSON string into an object
-    let jsonObject = JSON.parse(fixedString);
-
-    // Return the parsed JSON object
-    return jsonObject;
-  } catch (error) {
-    console.error('Error parsing JSON:', error);
-    return null;
-  }
-}
 
 const addSummary = async (id: number, acto: string, fecha: string) => {
   try {
@@ -96,21 +51,21 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     const { blob, numberOfPages } = await getPdfData(acto);
 
     let summaryLength = 300;
-    let settings = { k: 5, fetchK: 15, lambda: 0.5 };
+    let settings = { k: 5, fetchK: 15, lambda: 0.1 };
 
     if (numberOfPages > 3 && numberOfPages <= 10) {
       summaryLength = 400;
-      settings = { k: 10, fetchK: 15, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.1 };
     } else if (numberOfPages > 10 && numberOfPages <= 30) {
       summaryLength = 600;
-      settings = { k: 10, fetchK: 15, lambda: 0.5 };
+      settings = { k: 10, fetchK: 15, lambda: 0.1 };
     } else if (numberOfPages > 30) {
       summaryLength = 1000;
-      settings = { k: 3, fetchK: 10, lambda: 0.5 };
+      settings = { k: 3, fetchK: 10, lambda: 0.1 };
     }
 
     console.log(`Summary length: ${summaryLength}`);
-    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, es my importante que incluyas todos los entregables, indicaciones y fechas relevantes.`;
+    const prompt = `Dame un resumen de aproximadamente ${summaryLength} palabras, es muy importante que incluyas todos los entregables, indicaciones y fechas relevantes, prefiero tener informacion de mas que de menos.`;
     const format = 'IMPORTANTE: Dame todo en formato HTML, sin son listas utiliza el tag ol (p, b, br, ol, li, etc.). IMPORTANTE: Solo devuelve el contenido del resumen, sin titulos tipo <h2>Resumen</h2> o </body>.';
     const summary = await generateResponse(blob, prompt, format, settings);
 
@@ -132,7 +87,7 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
     console.log(`Summary added successfully for acto with ID ${id}`);
 
     const summaryBlob = [{ id: '1', pageContent: summary, metadata: {} }];
-    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON ["{{Entregable1}}", "{{Entregable2}}", ...]. IMPORTANTE: Scape double quotes. IMPORTANTE: Solo devuelve el JSON', settings);
+    const deliverablesJson = await generateResponse3(summaryBlob, 'Ordena los entregables en formato JSON "["{{Entregable1}}", "{{Entregable2}}", ...]". IMPORTANTE: Scape double quotes. IMPORTANTE: Solo devuelve el JSON', settings);
     console.log(`Deliverables JSON ${id}:`, deliverablesJson);
     
     const deliverablesParagraphs = [];
@@ -142,13 +97,14 @@ const addSummary = async (id: number, acto: string, fecha: string) => {
       const deliverablesFormatted = deliverables.map((entregable: string) => ({ entregable }));
 
       // Process in chunks of 5
-      const chunkSize = 3;
+      const chunkSize = 2;
       for (let i = 0; i < deliverables.length; i += chunkSize) {
         const chunk = deliverablesFormatted.slice(i, i + chunkSize);
         const jsonDeliverables = JSON.stringify(chunk);
+        console.log('JSON Deliverables:', jsonDeliverables);
 
-        const format = 'IMPORTANTE: Respuesta en formato JSON [{ "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, { "entregable": "{{Entregable}}", "parrafo": "{{Parrafo}}" }, ...]. IMPORTANTE: Scape the double quotes. IMPORTANTE: Solo devuelve el JSON.';
-        const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablan sobre estos entregable, es importante la precision, por lo tanto si hay mas de 1 parrafo que coincide tambien los quiero: ${jsonDeliverables}`, format, settings);
+        const format = 'IMPORTANTE: Ejemplo de respuesta en formato JSON [{ "entregable": "{{Entregable}}", "parrafos": "{{Parrafos}}" }, { "entregable": "{{Entregable}}", "parrafos": "{{Parrafos}}" }, ...]. IMPORTANTE: Scape the double quotes. IMPORTANTE: Solo devuelve el JSON.';
+        const deliverablesRespond = await generateResponse(blob, `Quiero los parrafos que hablen de estos ${chunkSize} entregables, ninguno mas: "${jsonDeliverables}". Es importante la precision y fiabilidad.`, format, settings);
         console.log(`Deliverables paragraphs ${id}:`, deliverablesRespond);
         // Check if deliverables paragraphs are valid JSON
 
